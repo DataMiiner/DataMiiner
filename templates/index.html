@@ -1,0 +1,130 @@
+<html>
+<head>
+    <title>DATA MIINER</title>
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/select2/4.1.0-rc.0/css/select2.min.css">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/select2/4.1.0-rc.0/js/select2.min.js"></script>
+    
+    <script>
+        $(document).ready(function() {
+            // Initialize select2 with search and sub-dropdown functionality
+            $('#data-category').select2();
+
+            function updateVisibility() {
+                var selectedCategory = $('#data-category').val();
+                var selectedSubCategory = $('#sub-data-category').val();
+                var $stockInput = $('#stock-data-input');
+                var $fetchButton = $('#fetch-button');
+
+                // Check if both "Financial Data" and "Stock Data" are selected
+                if (selectedCategory === 'Financial Data' && selectedSubCategory === 'Stock Data') {
+                    $stockInput.show();
+                    $fetchButton.show();
+                } else {
+                    $stockInput.hide();
+                    $fetchButton.show();
+                }
+            }
+
+            $('#data-category').on('change', function() {
+                var selectedCategory = $(this).val();
+                var $subDropdown = $('#sub-data-category');
+
+                if (selectedCategory) {
+                    // Send a request to the server to get sub-categories
+                    $.post('/get_subcategories', { data_category: selectedCategory }, function(data) {
+                        $subDropdown.html('');
+                        $.each(data.sub_categories, function(index, value) {
+                            $subDropdown.append($('<option>').text(value).val(value));
+                        });
+                        $subDropdown.prop('disabled', false);
+
+                        // Trigger the updateVisibility function to check visibility
+                        updateVisibility();
+                    });
+                } else {
+                    $subDropdown.html('');
+                    $subDropdown.prop('disabled', true);
+
+                    // Trigger the updateVisibility function to check visibility
+                    updateVisibility();
+                }
+            });
+
+            $('#sub-data-category').on('change', function() {
+                // Trigger the updateVisibility function to check visibility
+                updateVisibility();
+            });
+
+            
+            $('#fetch-button').on('click', function (e) {
+                e.preventDefault(); // Prevent the form submission
+            
+                var selectedSubCategory = $('#sub-data-category').val();
+            
+                
+                // Make an AJAX request to the /process_data route
+                $.post('/process_data', $('form').serialize(), function(data) {
+                    if ('csv_file_path' in data) {
+                        // Update the download link with the CSV file path
+                        var downloadLink = $('#download-link');
+                        downloadLink.attr('href', '/download_csv/' + data.csv_file_path);
+                        downloadLink.show();
+                    } else if ('error' in data) {
+                        console.error(data.message); // Log the error message
+                    }
+                });
+                    
+                
+            });
+            
+        });
+    </script>
+    <link rel="icon" href="{{ url_for('static', filename='2.png') }}" type="image/x-icon">
+
+</head>
+<body>
+    <nav>
+        <a href="/">Home</a>
+        <a href="/about">About</a>
+    </nav>
+    <div class="container">
+        <h1><img src="{{ url_for('static', filename='1.jpeg') }}"> </h1>
+
+        <h2>Select Data Category:</h2>
+        <form action="/process_data" method="post">
+            <select id="data-category" name="data_category">
+                {% for category in data_categories %}
+                    <option value="{{ category }}">{{ category }}</option>
+                {% endfor %}
+            </select>
+            <select id="sub-data-category" name="sub_data_category" disabled>
+                <option value="">Select Sub-Category</option>
+            </select>
+            <div id="stock-data-input" style="display: none;">
+                <label for="stock_name">Stock Name (Ticker Symbol,e.g='AAPL'):</label>
+                <input type="text" name="stock_name" required><br>
+                <label for="start_date">Start Date:</label>
+                <input type="date" name="start_date" required><br>
+                <label for "end_date">End Date:</label>
+                <input type="date" name="end_date" required><br>
+            </div>
+            <button id="fetch-button">Fetch Stock Data</button>
+        </form>
+        <br>
+         <!-- Display the download link if CSV file path is available -->
+         
+        <div id="download-container">
+            <p><a href="{{ url_for('download_csv') }}" class="btn btn-primary download-link">Download CSV</a></p>
+            <p><a href="{{ url_for('download_excel') }}" class="btn btn-primary download-link">Download Excel</a></p>
+            
+
+
+        </div>
+
+
+
+    </div>
+</body>
+</html>
